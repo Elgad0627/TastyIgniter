@@ -8,7 +8,6 @@ use Admin\Models\Location_areas_model;
 use Admin\Traits\FormModelWidget;
 use Admin\Traits\ValidatesForm;
 use Igniter\Flame\Exception\ApplicationException;
-use Igniter\Flame\Html\HtmlFacade as Html;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -81,11 +80,10 @@ class MapArea extends BaseFormWidget
             'deleteLabel',
             'sortable',
         ]);
-
         $this->areaColors = Location_areas_model::$areaColors;
 
         $fieldName = $this->formField->getName(false);
-        $this->sortableInputName = self::SORT_PREFIX.$fieldName;
+        $this->sortableInputName = self::SORT_PREFIX . $fieldName;
     }
 
     public function loadAssets()
@@ -158,8 +156,8 @@ class MapArea extends BaseFormWidget
 
         return $this->makePartial('maparea/area_form', [
             'formAreaId' => $areaId,
-            'formTitle' => ($model->exists ? $this->editLabel : $this->addLabel).' '.lang($this->formName),
-            'formWidget' => $this->makeAreaFormWidget($model, 'edit'),
+            'formTitle' => ($model->exists ? $this->editLabel : $this->addLabel) . ' ' . lang($this->formName),
+            'formWidget' => $this->makeAreaFormWidget($model, 'edit')
         ]);
     }
 
@@ -177,12 +175,13 @@ class MapArea extends BaseFormWidget
 
         DB::transaction(function () use ($modelsToSave) {
             foreach ($modelsToSave as $modelToSave) {
+                $this->fireSystemEvent('maparea.extraValidation', [$modelToSave]);
                 $modelToSave->saveOrFail();
             }
         });
 
         flash()->success(sprintf(lang('admin::lang.alert_success'),
-            'Area '.($form->context == 'create' ? 'created' : 'updated')
+            'Area ' . ($form->context == 'create' ? 'created' : 'updated')
         ))->now();
 
         $this->formField->value = null;
@@ -207,7 +206,7 @@ class MapArea extends BaseFormWidget
 
         $model->delete();
 
-        flash()->success(sprintf(lang('admin::lang.alert_success'), lang($this->formName).' deleted'))->now();
+        flash()->success(sprintf(lang('admin::lang.alert_success'), lang($this->formName) . ' deleted'))->now();
 
         $this->prepareVars();
 
@@ -216,11 +215,11 @@ class MapArea extends BaseFormWidget
         ];
     }
 
-    public function getMapShapeAttributes($area)
+    public function getMapAreaShapes($area)
     {
         $areaColor = $area->color;
 
-        $attributes = [
+        $attributes = collect([[
             'data-id' => $area->area_id ?? 1,
             'data-name' => $area->name ?? '',
             'data-default' => $area->type ?? 'address',
@@ -234,9 +233,11 @@ class MapArea extends BaseFormWidget
                 'strokeColor' => $areaColor,
                 'distanceUnit' => setting('distance_unit'),
             ]),
-        ];
+        ]]);
 
-        return Html::attributes($attributes);
+        $this->fireSystemEvent('maparea.extendMapAreaShapes', [$area, $attributes]);
+
+        return $attributes;
     }
 
     protected function getMapAreas()
@@ -276,8 +277,8 @@ class MapArea extends BaseFormWidget
         $config = is_string($this->form) ? $this->loadConfig($this->form, ['form'], 'form') : $this->form;
         $config['context'] = $context;
         $config['model'] = $model;
-        $config['alias'] = $this->alias.'Form';
-        $config['arrayName'] = $this->formField->arrayName.'[areaData]';
+        $config['alias'] = $this->alias . 'Form';
+        $config['arrayName'] = $this->formField->arrayName . '[areaData]';
 
         $widget = $this->makeWidget('Admin\Widgets\Form', $config);
         $widget->bindToController();
